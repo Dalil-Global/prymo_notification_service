@@ -1,0 +1,1 @@
+Hi {{name}}, your transaction of {{amount}} {{currency}} to {{recipient}} has been completed successfully. Ref: {{reference}}.
