@@ -55,7 +55,7 @@ public class NotificationService {
                 .orElseThrow(() -> new IllegalArgumentException("Template not found: " + templateName));
 
         String body = templateService.render(template.getContent(), variables);
-        notification.setContent(body);
+        notification.setBody(body);
         notificationRepository.save(notification);
 
         try {

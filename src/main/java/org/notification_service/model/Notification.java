@@ -24,18 +24,35 @@ public class Notification {
     private UUID id;
 
     @Column(nullable = false)
+    private UUID userId;
+
+    @Column(nullable = false)
     private String recipientEmail;
+
+    @Column(nullable = false)
+    private String type; // email, sms, push
+
+    @Column(name = "recipient_phone")
+    private String recipientPhone;
+
+    @Column(nullable = false, length = 500)
+    private String message;
 
     private String subject;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
 
+    @Column(nullable = false)
+    private String channel; // dnd, generic (for SMS) / smtp (email) / push
+
     @Enumerated(EnumType.STRING)
     private NotificationStatus status = NotificationStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
     private NotificationPriority priority = NotificationPriority.NORMAL;
+
+    private String providerMessageId;
 
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();

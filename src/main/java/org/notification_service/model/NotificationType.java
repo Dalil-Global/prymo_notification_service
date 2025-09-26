@@ -1,6 +1,6 @@
 package org.notification_service.model;
 
-public enum NotificationChannel {
+public enum NotificationType {
     EMAIL, SMS, PUSH
 }
 

@@ -6,10 +6,14 @@ import org.notification_service.dto.response.NotificationResponse;
 import org.notification_service.model.Notification;
 import org.notification_service.model.NotificationStatus;
 import org.notification_service.repository.NotificationRepository;
-import org.springframework.mail.SimpleMailMessage;
+import org.notification_service.template.EmailTemplateProcessor;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.internet.MimeMessage;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +21,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final NotificationRepository notificationRepository;
+    private final EmailTemplateProcessor emailTemplateProcessor;
 
     public NotificationResponse sendEmail(SendEmailRequest request) {
         Notification notification = Notification.builder()
@@ -29,14 +34,31 @@ public class EmailService {
         notification = notificationRepository.save(notification);
 
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(request.getRecipientEmail());
-            message.setSubject(request.getSubject());
-            message.setText(request.getBody());
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setTo(request.getRecipientEmail());
+            helper.setSubject(request.getSubject());
+
+            String content;
+
+            if (request.getTemplatePath() != null && !request.getTemplatePath().isBlank()) {
+                // Use template if provided
+                Map<String, Object> variables = request.getVariables() != null ? request.getVariables() : Map.of();
+                String rawTemplate = emailTemplateProcessor.loadTemplate(request.getTemplatePath());
+                content = emailTemplateProcessor.render(rawTemplate, variables);
+                helper.setText(content, true); // true = HTML
+            } else {
+                // fallback: plain text
+                content = request.getBody();
+                helper.setText(content, false);
+            }
 
             mailSender.send(message);
 
             notification.setStatus(NotificationStatus.SENT);
+            notification.setBody(content);
+
         } catch (Exception e) {
             notification.setStatus(NotificationStatus.FAILED);
         }
