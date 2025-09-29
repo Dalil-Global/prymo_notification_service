@@ -52,8 +52,17 @@ public class Notification {
     @Enumerated(EnumType.STRING)
     private NotificationPriority priority = NotificationPriority.NORMAL;
 
+    private LocalDateTime sentAt;        // When message was sent
+    private String errorMessage;         // Reason if failed
+    private Integer attempts = 0;        // Number of attempts made
+
     private String providerMessageId;
 
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PreUpdate
+    public void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

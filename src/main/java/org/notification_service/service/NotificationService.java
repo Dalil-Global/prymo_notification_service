@@ -2,8 +2,7 @@ package org.notification_service.service;
 
 import jakarta.transaction.Transactional;
 import org.notification_service.dto.request.SendEmailRequest;
-import org.notification_service.model.Notification;
-import org.notification_service.model.NotificationTemplate;
+import org.notification_service.model.*;
 import org.notification_service.repository.NotificationRepository;
 import org.springframework.stereotype.Service;
 
@@ -42,13 +41,10 @@ public class NotificationService {
                 .userId(userId)
                 .channel("EMAIL")
                 .type(templateName)
-                .status("PENDING")
-                .priority("NORMAL")
+                .status(NotificationStatus.PENDING)
+                .priority(NotificationPriority.NORMAL)
                 .attempts(0)
-                .provider("SMTP")
-                .recipientEmail(to)   // ✅ now stored
-                .build();
-
+                .providerMessageId()
         notification = notificationRepository.save(notification);
 
         NotificationTemplate template = templateService.findByName(templateName)
@@ -61,7 +57,7 @@ public class NotificationService {
         try {
             SendEmailRequest req = new SendEmailRequest();
             req.setUserId(userId);
-            req.setTo(to);
+            req.setRecipientEmail(to);
             req.setSubject(subject);
             req.setTemplateName(templateName);
             req.setVariables(variables);

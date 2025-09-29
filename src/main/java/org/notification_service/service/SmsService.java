@@ -2,58 +2,81 @@ package org.notification_service.service;
 
 import lombok.RequiredArgsConstructor;
 import org.notification_service.dto.request.SendSmsRequest;
+import org.notification_service.dto.response.NotificationResponse;
 import org.notification_service.model.Notification;
 import org.notification_service.model.NotificationStatus;
-import org.notification_service.model.UserNotificationPreference;
-import org.notification_service.provider.sms.SmsProvider;
-import org.notification_service.provider.sms.SmsSendResult;
 import org.notification_service.repository.NotificationRepository;
-import org.notification_service.repository.UserPreferenceRepository;
+import org.notification_service.template.SmsTemplateProcessor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class SmsService {
 
-    private final SmsProvider smsProvider; // TermiiSmsProvider injected
+    private final RestTemplate restTemplate;
     private final NotificationRepository notificationRepository;
-    private final UserPreferenceRepository preferenceRepository;
+    private final SmsTemplateProcessor smsTemplateProcessor;
+    private final DeliveryTrackingService deliveryTrackingService;
 
-    public Notification sendSmsForUserId(java.util.UUID userId, SendSmsRequest request) {
-        // Check user preferences: if exists and sms disabled, skip
-        Optional<UserNotificationPreference> prefOpt = preferenceRepository.findByUserId(userId);
-        if (prefOpt.isPresent() && Boolean.FALSE.equals(prefOpt.get().getSmsEnabled())) {
-            // Optionally, return a notification record with PENDING or mark as SKIPPED
-            Notification skipped = Notification.builder()
-                    .recipientPhone(request.getRecipientPhone())
-                    .body(request.getMessage())
-                    .status(NotificationStatus.FAILED) // or a SKIPPED enum if you prefer
-                    .build();
-            return notificationRepository.save(skipped);
+    private static final String TERMII_URL = "https://v3.api.termii.com";
+    private static final String API_KEY = "YOUR_TERMII_API_KEY"; // move to application.properties
+
+    public NotificationResponse sendSms(SendSmsRequest request) {
+        Map<String, Object> variables = new HashMap<>();
+        if (request.getVariables() != null) {
+            variables.putAll(request.getVariables());
         }
 
-        return sendSms(request);
-    }
+        // Load & render template
+        String templatePath = STR."src/main/resources/templates/sms/\{request.getTemplateName()}.txt";
+        String templateContent = smsTemplateProcessor.loadTemplate(templatePath);
+        String renderedContent = smsTemplateProcessor.render(templateContent, variables);
 
-    public Notification sendSms(SendSmsRequest request) {
-        Notification n = Notification.builder()
+        // Save notification entry
+        Notification notification = Notification.builder()
                 .recipientPhone(request.getRecipientPhone())
-                .body(request.getMessage())
+                .subject(request.getTemplateName())
+                .body(renderedContent)
                 .status(NotificationStatus.PENDING)
+                .channel(request.getChannel())
+                .type("SMS")
                 .build();
-        n = notificationRepository.save(n);
 
-        SmsSendResult res = smsProvider.sendSms(request.getRecipientPhone(), request.getMessage(), request.getExternalId());
+        notification = notificationRepository.save(notification);
+        deliveryTrackingService.incrementAttempts(notification);
 
-        if (res.isSuccess()) {
-            n.setStatus(NotificationStatus.SENT);
-        } else {
-            n.setStatus(NotificationStatus.FAILED);
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("api_key", API_KEY);
+            payload.put("to", request.getRecipientPhone());
+            payload.put("from", request.getSenderId());
+            payload.put("sms", renderedContent);
+            payload.put("type", "plain");
+            payload.put("channel", request.getChannel());
+
+            restTemplate.postForEntity(TERMII_URL, payload, String.class);
+
+            deliveryTrackingService.markSent(notification);
+        } catch (Exception e) {
+            deliveryTrackingService.markFailed(notification, e.getMessage());
         }
-        // optionally store provider response in body or another column later
-        notificationRepository.save(n);
-        return n;
+
+        return NotificationResponse.builder()
+                .id(notification.getId())
+                .recipientPhone(notification.getRecipientPhone())
+                .subject(notification.getSubject())
+                .status(notification.getStatus().name())
+                .sentAt(notification.getSentAt())
+                .errorMessage(notification.getErrorMessage())
+                .attempts(notification.getAttempts())
+                .channel(notification.getChannel())
+                .type(notification.getType())
+                .createdAt(notification.getCreatedAt())
+                .updatedAt(notification.getUpdatedAt())
+                .build();
     }
 }

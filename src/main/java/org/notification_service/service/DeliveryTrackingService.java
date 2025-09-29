@@ -2,6 +2,7 @@ package org.notification_service.service;
 
 import jakarta.transaction.Transactional;
 import org.notification_service.model.Notification;
+import org.notification_service.model.NotificationStatus;
 import org.notification_service.repository.NotificationRepository;
 import org.springframework.stereotype.Service;
 
@@ -18,14 +19,14 @@ public class DeliveryTrackingService {
     }
 
     public void markSent(Notification notification) {
-        notification.setStatus("SENT");
+        notification.setSentAt(LocalDateTime.parse("SENT"));
         notification.setSentAt(LocalDateTime.now());
         notification.setErrorMessage(null);
         notificationRepository.save(notification);
     }
 
     public void markFailed(Notification notification, String error) {
-        notification.setStatus("FAILED");
+        notification.setStatus(NotificationStatus.valueOf("FAILED"));
         notification.setErrorMessage(error);
         notificationRepository.save(notification);
     }
