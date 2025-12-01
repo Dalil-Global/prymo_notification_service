@@ -16,7 +16,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Notification {
+public class NotificationEntity {
 
     @Id
     @GeneratedValue(generator = "uuid2")

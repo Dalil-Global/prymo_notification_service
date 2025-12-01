@@ -4,58 +4,54 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import lombok.RequiredArgsConstructor;
-import org.notification_service.dto.request.SendPushRequest;
-import org.notification_service.dto.response.NotificationResponse;
-import org.notification_service.model.PushToken;
-import org.notification_service.repository.PushTokenRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.notification_service.dto.event.PushNotificationEvent;
+import org.notification_service.model.NotificationStatus;
+import org.notification_service.model.NotificationEntity;
+import org.notification_service.repository.NotificationRepository;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PushNotificationService {
 
-    private final PushTokenRepository pushTokenRepository;
+    private final NotificationRepository notificationRepository;
 
-    public NotificationResponse sendPush(SendPushRequest request) {
+    public void processPushEvent(PushNotificationEvent event) {
         try {
-            // Build FCM notification
+            // 1. Save notification entry
+            NotificationEntity record = NotificationEntity.builder()
+                    .recipientPhone(null)
+                    .recipientEmail(null)
+                    .subject(event.getTitle())
+                    .body(event.getBody())
+                    .status(NotificationStatus.PENDING)
+                    .type("PUSH")
+                    .channel("PUSH")
+                    .build();
+
+            record = notificationRepository.save(record);
+
+            // 2. Build firebase message
             Notification notification = Notification.builder()
-                    .setTitle(request.getTitle())
-                    .setBody(request.getBody())
+                    .setTitle(event.getTitle())
+                    .setBody(event.getBody())
                     .build();
 
             Message message = Message.builder()
                     .setNotification(notification)
-                    .setToken(request.getDeviceToken())
+                    .setToken(event.getDeviceToken())
                     .build();
 
-            String response = FirebaseMessaging.getInstance().send(message);
+            FirebaseMessaging.getInstance().send(message);
 
-            return NotificationResponse.builder()
-                    .id(null)
-                    .status("SENT")
-                    .recipientEmail(null)
-                    .subject(request.getTitle())
-                    .build();
+            // 3. Success
+            record.setStatus(NotificationStatus.SENT);
+            notificationRepository.save(record);
 
-        } catch (Exception e) {
-            return NotificationResponse.builder()
-                    .id(null)
-                    .status("FAILED")
-                    .subject(request.getTitle())
-                    .build();
+        } catch (Exception ex) {
+            log.error("Failed to send push notification: {}", ex.getMessage());
         }
     }
-
-    public void registerToken(PushToken token) {
-        pushTokenRepository.findByDeviceToken(token.getDeviceToken())
-                .ifPresentOrElse(
-                        existing -> {
-                            existing.setActive(true);
-                            pushTokenRepository.save(existing);
-                        },
-                        () -> pushTokenRepository.save(token)
-                );
-    }
 }
-

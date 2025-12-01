@@ -31,20 +31,21 @@ public class NotificationService {
     /**
      * Saves a notification record, renders template, attempts send, records result.
      */
-    public Notification sendEmail(UUID userId,
-                                  String to,
-                                  String subject,
-                                  String templateName,
-                                  Map<String, Object> variables) {
+    public NotificationEntity sendEmail(UUID userId,
+                                        String to,
+                                        String subject,
+                                        String templateName,
+                                        Map<String, Object> variables) {
 
-        Notification notification = Notification.builder()
+        NotificationEntity notification = NotificationEntity.builder()
                 .userId(userId)
-                .channel("EMAIL")
                 .type(templateName)
                 .status(NotificationStatus.PENDING)
                 .priority(NotificationPriority.NORMAL)
                 .attempts(0)
-                .providerMessageId()
+                .channel("SMTP")
+                .recipientEmail(to)   // ✅ now stored
+                .build();
         notification = notificationRepository.save(notification);
 
         NotificationTemplate template = templateService.findByName(templateName)

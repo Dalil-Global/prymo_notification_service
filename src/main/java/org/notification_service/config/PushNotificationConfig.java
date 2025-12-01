@@ -5,22 +5,20 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.io.FileInputStream;
+import org.springframework.core.io.ClassPathResource;
 import java.io.IOException;
 
 @Configuration
+
 public class PushNotificationConfig {
 
     @Bean
+
     public FirebaseApp firebaseApp() throws IOException {
-        FileInputStream serviceAccount =
-                new FileInputStream("src/main/resources/firebase-service-account.json");
-
+        ClassPathResource serviceAccount = new ClassPathResource("prymo-notification-firebase-adminsdk-fbsvc-4d0082176f.json");
         FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                .setCredentials(GoogleCredentials.fromStream(serviceAccount.getInputStream()))
                 .build();
-
         return FirebaseApp.initializeApp(options);
     }
 }

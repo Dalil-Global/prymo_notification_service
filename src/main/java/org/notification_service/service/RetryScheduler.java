@@ -1,7 +1,8 @@
 package org.notification_service.service;
 
 import jakarta.transaction.Transactional;
-import org.notification_service.model.Notification;
+import org.notification_service.model.NotificationEntity;
+import org.notification_service.model.NotificationStatus;
 import org.notification_service.repository.NotificationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +32,8 @@ public class RetryScheduler {
         @Scheduled(fixedDelayString = "${notification.retry.delay:60000}")
         @Transactional
         public void retryFailedEmails() {
-        List<Notification> failed = notificationRepository.findByStatusAndAttemptsLessThan("FAILED", MAX_RETRIES);
-        for (Notification n : failed) {
+        List<NotificationEntity> failed = notificationRepository.findByStatusAndAttemptsLessThan(NotificationStatus.valueOf("FAILED"),  MAX_RETRIES);
+        for (NotificationEntity n : failed) {
         try {
             if (!"EMAIL".equalsIgnoreCase(n.getChannel())) continue;
 
