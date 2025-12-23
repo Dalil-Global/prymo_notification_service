@@ -9,7 +9,7 @@ public class SmsConfig {
     @Value("https://v3.api.termii.com")
     private String baseUrl;
 
-    @Value("TLCBpyGrlCCEqELzXsCTbOwKJiHwBxBtEQDLnWcByAHnNQYsikZPctfQIqMUve")
+    @Value("${TERMII_API_KEY}")
     private String apiKey;
 
     @Value("${termii.sender.id:PRYMO}")

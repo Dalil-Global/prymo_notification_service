@@ -15,7 +15,7 @@ public class PushNotificationConfig {
     @Bean
 
     public FirebaseApp firebaseApp() throws IOException {
-        ClassPathResource serviceAccount = new ClassPathResource("prymo-notification-firebase-adminsdk-fbsvc-7bbaf4eec2.json");
+        ClassPathResource serviceAccount = new ClassPathResource("${FIREBASE_CREDENTIAL_PATH}");
         FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(GoogleCredentials.fromStream(serviceAccount.getInputStream()))
                 .build();
