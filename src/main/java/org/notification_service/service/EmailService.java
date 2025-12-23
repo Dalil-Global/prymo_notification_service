@@ -1,31 +1,38 @@
 package org.notification_service.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.notification_service.dto.event.EmailNotificationEvent;
 import org.notification_service.dto.request.SendEmailRequest;
 import org.notification_service.dto.response.NotificationResponse;
-import org.notification_service.kafka.NotificationEvent;
-import org.notification_service.kafka.NotificationEventProducer;
+import org.notification_service.event.publisher.NotificationEventPublisher;
 import org.notification_service.model.NotificationEntity;
 import org.notification_service.model.NotificationStatus;
 import org.notification_service.model.NotificationPriority;
+import org.notification_service.provider.email.EmailProvider;
+import org.notification_service.provider.email.EmailSendResult;
 import org.notification_service.repository.NotificationRepository;
 import org.notification_service.template.EmailTemplateProcessor;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService {
 
     private final NotificationRepository notificationRepository;
     private final EmailTemplateProcessor templateProcessor;
     private final DeliveryTrackingService trackingService;
-    private final NotificationEventProducer eventProducer;
+    private final NotificationEventPublisher eventPublisher;
+    private final EmailProvider emailProvider;
 
     public NotificationResponse sendEmail(SendEmailRequest request) {
 
-        // Save record
+        // 1. Render Template FIRST (Before saving to DB)
+        String rawTemplate = templateProcessor.loadTemplate(request.getTemplatePath());
+        String finalBody = templateProcessor.render(rawTemplate, request.getVariables());
+
+        // 2. Build and Save Record
         NotificationEntity record = NotificationEntity.builder()
                 .userId(request.getUserId())
                 .recipientEmail(request.getRecipientEmail())
@@ -34,32 +41,22 @@ public class EmailService {
                 .priority(NotificationPriority.NORMAL)
                 .status(NotificationStatus.PENDING)
                 .attempts(0)
+                .body(finalBody) // ✅ Fix 1: Populated
+                .message(request.getSubject()) // ✅ Fix 2: Populated (Using Subject as 'Message' summary)
+                .subject(request.getSubject())
                 .build();
 
         record = notificationRepository.save(record);
 
-        // Load + render template
-        String rawTemplate = templateProcessor.loadTemplate(request.getTemplatePath());
-        String finalBody = templateProcessor.render(rawTemplate, request.getVariables());
-        record.setBody(finalBody);
+        // 3. Publish Event
+        EmailNotificationEvent event = new EmailNotificationEvent();
+        event.setUserId(record.getUserId());
+        event.setRecipientEmail(record.getRecipientEmail());
+        event.setSubject(request.getSubject());
+        event.setTemplateName(request.getTemplateName());
+        event.setVariables(request.getVariables());
 
-        notificationRepository.save(record);
-
-        trackingService.incrementAttempts(record);
-
-        // Publish Kafka Event
-        NotificationEvent event = NotificationEvent.builder()
-                .notificationId(record.getId())
-                .userId(record.getUserId())
-                .channel("EMAIL")
-                .recipient(record.getRecipientEmail())
-                .subject(request.getSubject())
-                .body(finalBody)
-                .variables(request.getVariables())
-                .build();
-
-        eventProducer.publish("notifications.email.send", event);
-
+        eventPublisher.publishEmail(event);
         trackingService.markQueued(record);
 
         return NotificationResponse.builder()
@@ -70,8 +67,28 @@ public class EmailService {
                 .build();
     }
 
-    // Called internally by Kafka consumer later
-    public void send(SendEmailRequest req) {
-        // EMPTY — actual sending is moved to a Kafka consumer
+    // Processing method (Listener calls this)
+    public void processEmailDelivery(EmailNotificationEvent event) {
+        log.info("Processing email delivery for user: {}", event.getUserId());
+
+        SendEmailRequest providerRequest = SendEmailRequest.builder()
+                .recipientEmail(event.getRecipientEmail())
+                .subject(event.getSubject())
+                .body("Rendered Content Placeholder")
+                .build();
+
+        EmailSendResult result = emailProvider.sendEmail(providerRequest);
+
+        if (result.isSuccess()) {
+            log.info("Email sent successfully to {}", event.getRecipientEmail());
+        } else {
+            log.error("Failed to send email: {}", result.getMessage());
+        }
+    }
+
+    // Direct send (Synchronous)
+    public void send(SendEmailRequest request) {
+        log.info("Directly sending email (Synchronous) to {}", request.getRecipientEmail());
+        emailProvider.sendEmail(request);
     }
 }

@@ -14,6 +14,6 @@ public class PushEventListener {
 
     @KafkaListener(topics = "${notification.topic.push}", groupId = "push-consumers", containerFactory = "kafkaListenerContainerFactory")
     public void onPushEvent(PushNotificationEvent event) {
-        pushService.sendPush(event); // implement sendPush(PushNotificationEvent e)
+        pushService.processPushDelivery(event);
     }
 }

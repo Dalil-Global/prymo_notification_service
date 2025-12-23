@@ -14,10 +14,6 @@ public class SmsEventListener {
 
     @KafkaListener(topics = "${notification.topic.sms}", groupId = "sms-consumers", containerFactory = "kafkaListenerContainerFactory")
     public void onSmsEvent(SmsNotificationEvent event) {
-        smsService.sendSms(event.getUserId(),
-                event.getRecipientPhone(),
-                event.getTemplateName(),
-                event.getChannel(),
-                event.getVariables());
+        smsService.processSmsDelivery(event);
     }
 }

@@ -6,6 +6,7 @@ import java.util.UUID;
 
 @Data
 public class SmsNotificationEvent {
+    private UUID notificationId;
     private UUID userId;
     private String recipientPhone;
     private String templateName;

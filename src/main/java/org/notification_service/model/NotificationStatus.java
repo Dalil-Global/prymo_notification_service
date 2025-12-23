@@ -1,5 +1,8 @@
 package org.notification_service.model;
 
 public enum NotificationStatus {
-    PENDING, SENT, FAILED
+    PENDING,
+    QUEUED, // ✅ Added this new status
+    SENT,
+    FAILED
 }

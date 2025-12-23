@@ -6,10 +6,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SmsConfig {
 
-    @Value("${termii.api.base-url}")
+    @Value("https://v3.api.termii.com")
     private String baseUrl;
 
-    @Value("${termii.api.key}")
+    @Value("TLCBpyGrlCCEqELzXsCTbOwKJiHwBxBtEQDLnWcByAHnNQYsikZPctfQIqMUve")
     private String apiKey;
 
     @Value("${termii.sender.id:PRYMO}")
